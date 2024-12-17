@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:social_media_recorder/audio_encoder_type.dart';
-import 'package:social_media_recorder/screen/social_media_recorder.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/openai_service.dart';
 import '../../../core/services/text_to_speech_service.dart';
 import '../../../core/widgets/custom_app_bar.dart';
+import '../../../core/widgets/custom_audio_recorder.dart';
 import '../../../utils/shared_prefs.dart';
 import 'message_list.dart';
 import 'settings_screen.dart';
@@ -24,8 +23,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextToSpeechService _ttsService = TextToSpeechService();
 
   bool _isLoading = false;
-  String? sourceLanguage = 'Deutsch'; // Default to Deutsch
-  String? targetLanguage = 'Français'; // Default to Français
+  String? sourceLanguage = 'Deutsch'; // Default language
+  String? targetLanguage = 'Français';
 
   @override
   void initState() {
@@ -40,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  /// Lädt die Quell- und Zielsprache aus SharedPreferences
   Future<void> _loadLanguages() async {
     final source = await SharedPrefs.getSourceLanguage();
     final target = await SharedPrefs.getTargetLanguage();
@@ -49,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  /// Sendet eine Nachricht an den OpenAI-Dienst
   void _sendMessage(String text) async {
     setState(() {
       _messages.add(ChatMessage(
@@ -91,9 +92,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Transkribiert die Audio-Datei
   Future<void> _transcribeAudio(String audioPath) async {
     try {
       setState(() => _isLoading = true);
+
       final transcription = await _openAIService.transcribeAudio(audioPath);
       if (transcription.isNotEmpty) {
         _sendMessage(transcription);
@@ -111,6 +114,13 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Callback für abgeschlossene Aufnahme
+  void _handleRecordingComplete(String filePath) {
+    debugPrint("Audio file path: $filePath");
+    _transcribeAudio(filePath);
+  }
+
+  /// Scrollt die Nachricht auf den unteren Rand
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -167,25 +177,12 @@ class _ChatScreenState extends State<ChatScreen> {
                         }
                       },
                     ),
+                    CustomAudioRecorder(
+                      onRecordingComplete: _handleRecordingComplete,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                SocialMediaRecorder(
-                  startRecording: () {
-                    debugPrint("Recording started...");
-                  },
-                  stopRecording: (recordingTime) {
-                    debugPrint("Recording stopped. Duration: $recordingTime seconds");
-                  },
-                  sendRequestFunction: (soundFile, recordingTime) {
-                    debugPrint("Recording file path: ${soundFile.path}");
-                    _transcribeAudio(soundFile.path);
-                  },
-                  encode: AudioEncoderType.AAC,
-                  recordIcon: const Icon(Icons.mic, size: 40, color: Colors.red),
-                  backGroundColor: Colors.grey.shade200,
-                  slideToCancelTextStyle: const TextStyle(color: Colors.red),
-                ),
+
               ],
             ),
           ),

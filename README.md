@@ -11,7 +11,7 @@ The main chat page includes the following features:
 3. **Voice Recorder**: Press and hold the microphone icon to record your voice, which will be transcribed and sent as a message.
 4. **Settings Button**: Navigate to the settings page to configure preferences like language selection.
 
-<img src="assets/image/screenshot.jpeg" alt="Screenshot of the Chat Page" width="600" />
+<img src="assets/image/screenshot.jpeg" alt="Screenshot of the Chat Page" width="400" />
 
 ## Adding Your API Key
 
