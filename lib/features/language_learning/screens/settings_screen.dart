@@ -22,8 +22,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'Japanese',
   ];
 
-  String? sourceLanguage = 'English'; // Default value
-  String? targetLanguage = 'Deutsch'; // Default value
+  String? sourceLanguage = 'Deutsch'; // Default value
+  String? targetLanguage = 'Français'; // Default value
 
   @override
   void initState() {
@@ -37,14 +37,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       // Validate that the saved preferences match the dropdown options
-      sourceLanguage = languages.contains(source) ? source : 'English';
-      targetLanguage = languages.contains(target) ? target : 'Deutsch';
+      sourceLanguage = languages.contains(source) ? source : 'Deutsch';
+      targetLanguage = languages.contains(target) ? target : 'Français';
     });
   }
 
   Future<void> _savePreferences() async {
-    await SharedPrefs.setSourceLanguage(sourceLanguage ?? 'English');
-    await SharedPrefs.setTargetLanguage(targetLanguage ?? 'Deutsch');
+    await SharedPrefs.setSourceLanguage(sourceLanguage ?? 'Deutsch');
+    await SharedPrefs.setTargetLanguage(targetLanguage ?? 'Français');
   }
 
   void _saveAndGoBack() async {

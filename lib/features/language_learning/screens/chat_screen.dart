@@ -49,8 +49,8 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  /// Sendet eine Nachricht an den OpenAI-Dienst
   void _sendMessage(String text) async {
+    // Add the user's message first
     setState(() {
       _messages.add(ChatMessage(
         text: text,
@@ -62,35 +62,48 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _scrollToBottom();
 
-    try {
-      final response = await _openAIService.sendMessage(
-        text,
-        sourceLanguage: sourceLanguage ?? 'Deutsch',
-        targetLanguage: targetLanguage ?? 'Français',
-      );
+    // Get the AI response
+    final response = await _openAIService.sendMessage(
+      text,
+      sourceLanguage: sourceLanguage ?? 'Deutsch',
+      targetLanguage: targetLanguage ?? 'Français',
+    );
 
-      setState(() {
-        _messages.add(ChatMessage(
-          text: response,
-          type: MessageType.ai,
-          language: targetLanguage ?? 'Français',
-        ));
-      });
+    setState(() {
+      // If the response contains a correction, apply it to the last user message
+      if (response.correction != null && response.correction!.isNotEmpty) {
+        final userMessageIndex = _messages.length - 1; // Last added message is the user message
+        final userMessage = _messages[userMessageIndex];
 
-      await _ttsService.speak(response, targetLanguage ?? 'Français');
-    } catch (error) {
-      setState(() {
-        _messages.add(ChatMessage(
-          text: "Error: ${error.toString()}",
-          type: MessageType.ai,
-          language: targetLanguage ?? 'Français',
-        ));
-      });
-    } finally {
-      setState(() => _isLoading = false);
-      _scrollToBottom();
-    }
+        // Create a new ChatMessage with the correction
+        final updatedUserMessage = ChatMessage(
+          text: userMessage.text,
+          type: userMessage.type,
+          language: userMessage.language,
+          correction: response.correction,
+        );
+
+        // Replace the last user message with the updated one
+        _messages[userMessageIndex] = updatedUserMessage;
+      }
+
+      // Now add the AI's answer as a new message without a correction
+      _messages.add(ChatMessage(
+        text: response.answer,
+        type: MessageType.ai,
+        language: targetLanguage ?? 'Français',
+        correction: null,
+      ));
+    });
+
+    // Use text-to-speech to read out the AI's answer
+    await _ttsService.speak(response.answer, targetLanguage ?? 'Français');
+
+    setState(() => _isLoading = false);
+    _scrollToBottom();
   }
+
+
 
   /// Transkribiert die Audio-Datei
   Future<void> _transcribeAudio(String audioPath) async {

@@ -16,13 +16,56 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.type == MessageType.user;
 
+    // Check if there is a correction and if it’s not empty
+    final hasCorrection = message.correction != null && message.correction!.isNotEmpty;
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Add empty space for alignment when user message is on the right
+          // If this is a user message and there is a correction,
+          // show the "i" icon on the left side.
+          if (isUser && hasCorrection) ...[
+            Container(
+              margin: const EdgeInsets.only(left: 10),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.yellow[600],
+                shape: BoxShape.circle,
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  // You could show a dialog or a tooltip with the correction here
+                  // For example:
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Correction'),
+                        content: Text(message.correction!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Icon(
+                  Icons.info,
+                  color: Colors.black,
+                  size: 16,
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+
+          // Align AI messages to the left and user messages to the right
           if (!isUser) const SizedBox(width: 40),
 
           Flexible(
