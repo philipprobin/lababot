@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../utils/shared_prefs.dart'; // Import your SharedPrefs class
+import 'package:provider/provider.dart';
+import '../../../core/models/language_provider.dart';
+import '../../../utils/shared_prefs.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -22,38 +24,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'Japanese',
   ];
 
-  String? sourceLanguage = 'Deutsch'; // Default value
-  String? targetLanguage = 'Français'; // Default value
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    final source = await SharedPrefs.getSourceLanguage();
-    final target = await SharedPrefs.getTargetLanguage();
-
-    setState(() {
-      // Validate that the saved preferences match the dropdown options
-      sourceLanguage = languages.contains(source) ? source : 'Deutsch';
-      targetLanguage = languages.contains(target) ? target : 'Français';
-    });
-  }
-
-  Future<void> _savePreferences() async {
-    await SharedPrefs.setSourceLanguage(sourceLanguage ?? 'Deutsch');
-    await SharedPrefs.setTargetLanguage(targetLanguage ?? 'Français');
-  }
-
-  void _saveAndGoBack() async {
-    await _savePreferences();
-    Navigator.pop(context);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -63,10 +37,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select your native language (Source Language):'),
+            const Text('Select your native language:'),
             DropdownButton<String>(
               isExpanded: true,
-              value: sourceLanguage, // Ensure this value matches a dropdown option
+              value: languageProvider.sourceLanguage, // Access from provider
               items: languages
                   .map((lang) => DropdownMenuItem(
                 value: lang,
@@ -74,16 +48,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ))
                   .toList(),
               onChanged: (value) {
-                setState(() {
-                  sourceLanguage = value;
-                });
+                if (value != null) {
+                  languageProvider.setSourceLanguage(value); // Update via provider
+                }
               },
             ),
             const SizedBox(height: 20),
-            const Text('Select the language you want to learn (Target Language):'),
+            const Text('Select the language you want to learn:'),
             DropdownButton<String>(
               isExpanded: true,
-              value: targetLanguage, // Ensure this value matches a dropdown option
+              value: languageProvider.targetLanguage, // Access from provider
               items: languages
                   .map((lang) => DropdownMenuItem(
                 value: lang,
@@ -91,16 +65,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ))
                   .toList(),
               onChanged: (value) {
-                setState(() {
-                  targetLanguage = value;
-                });
+                if (value != null) {
+                  languageProvider.setTargetLanguage(value); // Update via provider
+                }
               },
             ),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
-                onPressed: _saveAndGoBack,
-                child: const Text('Save'),
+                onPressed: () async {
+                  // Save preferences to persistent storage
+                  await SharedPrefs.setSourceLanguage(languageProvider.sourceLanguage);
+                  await SharedPrefs.setTargetLanguage(languageProvider.targetLanguage);
+                  Navigator.pop(context); // Navigate back
+                },
+                child: Text('Save', style: TextStyle(color: Theme.of(context).primaryColor)),
               ),
             ),
           ],

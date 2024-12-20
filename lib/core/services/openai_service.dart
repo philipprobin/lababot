@@ -12,6 +12,48 @@ class OpenAIService {
   final String _chatApiUrl = 'https://api.openai.com/v1/chat/completions';
   final String _whisperApiUrl = 'https://api.openai.com/v1/audio/transcriptions';
 
+  Future<String> explain(String message,
+      {required String sourceLanguage, required String targetLanguage}) async {
+
+    debugPrint("OpenAI.explain: Source language: $sourceLanguage, target language: $targetLanguage");
+    final response = await http.post(
+      Uri.parse(_chatApiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+      },
+      body: jsonEncode({
+        "model": "gpt-4o-mini",
+        "messages": [
+          {
+            "role": "system",
+            "content":
+            "Use the text written in $targetLanguage and split it into smaller parts. Explain each part in $sourceLanguage. Use very simple language. Try to explain the text in a way that a child could understand it. Explain as short as possible"
+          },
+          {"role": "user", "content": message}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 256,
+        "top_p": 1.0,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        // Decode the response as UTF-8
+        final utf8Response = utf8.decode(response.bodyBytes);
+        final data = jsonDecode(utf8Response);
+        return data["choices"][0]["message"]["content"];
+      } catch (e) {
+        throw Exception("Error decoding explanation: $e");
+      }
+    } else {
+      throw Exception('Failed to fetch explanation: ${response.body}');
+    }
+  }
+
   Future<ChatResponse> sendMessage(String message,
       {required String sourceLanguage, required String targetLanguage}) async {
     final response = await http.post(
@@ -67,9 +109,8 @@ class OpenAIService {
       try {
         final utf8Response = utf8.decode(response.bodyBytes);
         final data = jsonDecode(utf8Response);
-        debugPrint("Response: $data");
-        debugPrint("");
-        debugPrint("Answer: ${data["choices"][0]["message"]["content"]}");
+
+        debugPrint("OpenAI.sendMessage: Source language: $sourceLanguage, target language: $targetLanguage");
 
         // Get the content as a string
         final contentString = data["choices"][0]["message"]["content"];

@@ -11,9 +11,9 @@ class SharedPrefs {
   }
 
   // Get the source language
-  static Future<String?> getSourceLanguage() async {
+  static Future<String> getSourceLanguage() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_sourceLanguageKey);
+    return prefs.getString(_sourceLanguageKey) ?? "Deutsch";
   }
 
   // Save the target language
@@ -23,8 +23,8 @@ class SharedPrefs {
   }
 
   // Get the target language
-  static Future<String?> getTargetLanguage() async {
+  static Future<String> getTargetLanguage() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_targetLanguageKey);
+    return prefs.getString(_targetLanguageKey) ?? "Français";
   }
 }

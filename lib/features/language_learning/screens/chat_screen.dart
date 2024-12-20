@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/models/chat_message.dart';
+import '../../../core/models/language_provider.dart';
 import '../../../core/services/openai_service.dart';
 import '../../../core/services/text_to_speech_service.dart';
 import '../../../core/widgets/custom_app_bar.dart';
 import '../../../core/widgets/custom_audio_recorder.dart';
-import '../../../utils/shared_prefs.dart';
 import 'message_list.dart';
 import 'settings_screen.dart';
 
@@ -23,13 +24,18 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextToSpeechService _ttsService = TextToSpeechService();
 
   bool _isLoading = false;
-  String? sourceLanguage = 'Deutsch'; // Default language
-  String? targetLanguage = 'Français';
+
+  bool _isTextNotEmpty = false; // Tracks whether the text field is not empty
 
   @override
   void initState() {
     super.initState();
-    _loadLanguages();
+    // Add listener to track text changes
+    _controller.addListener(() {
+      setState(() {
+        _isTextNotEmpty = _controller.text.isNotEmpty;
+      });
+    });
   }
 
   @override
@@ -39,23 +45,17 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  /// Lädt die Quell- und Zielsprache aus SharedPreferences
-  Future<void> _loadLanguages() async {
-    final source = await SharedPrefs.getSourceLanguage();
-    final target = await SharedPrefs.getTargetLanguage();
-    setState(() {
-      sourceLanguage = source ?? 'Deutsch';
-      targetLanguage = target ?? 'Français';
-    });
-  }
-
   void _sendMessage(String text) async {
+    final languageProvider = context.read<LanguageProvider>();
+    final sourceLanguage = languageProvider.sourceLanguage;
+    final targetLanguage = languageProvider.targetLanguage;
+
     // Add the user's message first
     setState(() {
       _messages.add(ChatMessage(
         text: text,
         type: MessageType.user,
-        language: sourceLanguage ?? 'Deutsch',
+        language: sourceLanguage,
       ));
       _isLoading = true;
     });
@@ -65,14 +65,15 @@ class _ChatScreenState extends State<ChatScreen> {
     // Get the AI response
     final response = await _openAIService.sendMessage(
       text,
-      sourceLanguage: sourceLanguage ?? 'Deutsch',
-      targetLanguage: targetLanguage ?? 'Français',
+      sourceLanguage: sourceLanguage,
+      targetLanguage: targetLanguage,
     );
 
     setState(() {
       // If the response contains a correction, apply it to the last user message
       if (response.correction != null && response.correction!.isNotEmpty) {
-        final userMessageIndex = _messages.length - 1; // Last added message is the user message
+        final userMessageIndex =
+            _messages.length - 1; // Last added message is the user message
         final userMessage = _messages[userMessageIndex];
 
         // Create a new ChatMessage with the correction
@@ -91,19 +92,17 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add(ChatMessage(
         text: response.answer,
         type: MessageType.ai,
-        language: targetLanguage ?? 'Français',
+        language: targetLanguage,
         correction: null,
       ));
     });
 
     // Use text-to-speech to read out the AI's answer
-    await _ttsService.speak(response.answer, targetLanguage ?? 'Français');
+    await _ttsService.speak(response.answer, targetLanguage);
 
     setState(() => _isLoading = false);
     _scrollToBottom();
   }
-
-
 
   /// Transkribiert die Audio-Datei
   Future<void> _transcribeAudio(String audioPath) async {
@@ -115,11 +114,12 @@ class _ChatScreenState extends State<ChatScreen> {
         _sendMessage(transcription);
       }
     } catch (error) {
+      final targetLanguage = context.read<LanguageProvider>().targetLanguage;
       setState(() {
         _messages.add(ChatMessage(
           text: "Error during transcription: ${error.toString()}",
           type: MessageType.ai,
-          language: targetLanguage ?? 'Français',
+          language: targetLanguage,
         ));
       });
     } finally {
@@ -148,6 +148,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+
     return Scaffold(
       appBar: CustomAppBar(
         onSettingsPressed: () {
@@ -165,6 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
               isLoading: _isLoading,
               scrollController: _scrollController,
               ttsService: _ttsService,
+              openAIService: _openAIService,
             ),
           ),
           Padding(
@@ -176,26 +179,41 @@ class _ChatScreenState extends State<ChatScreen> {
                     Expanded(
                       child: TextField(
                         controller: _controller,
-                        decoration:
-                        const InputDecoration(hintText: 'Type your message'),
+                        decoration: InputDecoration(
+                          hintText: 'Type your message',
+                          hintStyle: TextStyle(color: Theme.of(context).primaryColor.withOpacity(0.6)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30), // Rounded corners
+                            borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30), // Rounded corners
+                            borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        ),
+                        cursorColor: Theme.of(context).primaryColor, // Cursor color
+                        style: TextStyle(color: Theme.of(context).primaryColor), // Text color
                         onTap: _scrollToBottom,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: () {
-                        if (_controller.text.isNotEmpty) {
-                          _sendMessage(_controller.text);
-                          _controller.clear();
-                        }
-                      },
-                    ),
-                    CustomAudioRecorder(
-                      onRecordingComplete: _handleRecordingComplete,
-                    ),
+
+                    _isTextNotEmpty
+                        ? IconButton(
+                      color: Theme.of(context).primaryColor,
+                            icon: const Icon(Icons.send),
+                            onPressed: () {
+                              if (_controller.text.isNotEmpty) {
+                                _sendMessage(_controller.text);
+                                _controller.clear();
+                              }
+                            },
+                          )
+                        : CustomAudioRecorder(
+                            onRecordingComplete: _handleRecordingComplete,
+                          ),
                   ],
                 ),
-
               ],
             ),
           ),

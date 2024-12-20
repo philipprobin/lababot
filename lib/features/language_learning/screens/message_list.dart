@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/chat_message.dart';
+import '../../../core/services/openai_service.dart';
 import '../../../core/services/text_to_speech_service.dart';
 import '../../../core/widgets/chat_bubble.dart';
 import '../../../core/widgets/loading_indicator.dart';
@@ -10,6 +11,7 @@ class MessageList extends StatelessWidget {
   final bool isLoading;
   final ScrollController scrollController;
   final TextToSpeechService ttsService;
+  final OpenAIService openAIService; // Add OpenAIService here
 
   const MessageList({
     super.key,
@@ -17,6 +19,7 @@ class MessageList extends StatelessWidget {
     required this.isLoading,
     required this.scrollController,
     required this.ttsService,
+    required this.openAIService, // Add OpenAIService here
   });
 
   @override
@@ -32,6 +35,8 @@ class MessageList extends StatelessWidget {
         return ChatBubble(
           message: message,
           ttsService: ttsService,
+
+          openAIService: openAIService, // Pass OpenAIService here
         );
       },
     );

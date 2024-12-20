@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'core/models/language_provider.dart';
 import 'features/language_learning/screens/chat_screen.dart';
 import 'core/theme/custom_swatch.dart';
 
@@ -10,7 +12,12 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => LanguageProvider()..loadLanguages(), // Load languages on startup
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

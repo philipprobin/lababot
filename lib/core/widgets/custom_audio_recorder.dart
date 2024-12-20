@@ -96,8 +96,8 @@ class _CustomAudioRecorderState extends State<CustomAudioRecorder> {
         IconButton(
           icon: Icon(
             _isRecording ? Icons.stop_circle : Icons.mic,
-            size: 36,
-            color: _isRecording ? Colors.red : Colors.blue,
+            size: 24,
+            color: _isRecording ? Colors.red : Theme.of(context).primaryColor,
           ),
           onPressed: () {
             if (_isRecording) {

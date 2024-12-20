@@ -1,23 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:provider/provider.dart';
 import '../models/chat_message.dart';
+import '../services/openai_service.dart';
 import '../services/text_to_speech_service.dart';
+import '../models/language_provider.dart';
 
-class ChatBubble extends StatelessWidget {
+class ChatBubble extends StatefulWidget {
   final ChatMessage message;
   final TextToSpeechService ttsService;
+  final OpenAIService openAIService;
 
   const ChatBubble({
     required this.message,
     required this.ttsService,
+    required this.openAIService,
     super.key,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isUser = message.type == MessageType.user;
+  _ChatBubbleState createState() => _ChatBubbleState();
+}
 
-    // Check if there is a correction and if it’s not empty
-    final hasCorrection = message.correction != null && message.correction!.isNotEmpty;
+class _ChatBubbleState extends State<ChatBubble> {
+  String? _cachedExplanation;
+  bool _isExplaining = false;
+
+  Future<void> _showExplanation(BuildContext context) async {
+    if (_cachedExplanation == null) {
+      setState(() => _isExplaining = true);
+      try {
+        final languageProvider = context.read<LanguageProvider>();
+        final explanation = await widget.openAIService.explain(
+          widget.message.text,
+          sourceLanguage: languageProvider.sourceLanguage,
+          targetLanguage: languageProvider.targetLanguage,
+        );
+        setState(() {
+          _cachedExplanation = explanation;
+          _isExplaining = false;
+        });
+      } catch (error) {
+        setState(() => _isExplaining = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching explanation: $error')),
+        );
+        return;
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Explanation'),
+          content: MarkdownBody(
+            data: _cachedExplanation!,
+            styleSheet: MarkdownStyleSheet(
+              p: const TextStyle(fontSize: 16),
+              strong: const TextStyle(fontWeight: FontWeight.bold),
+              em: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = widget.message.type == MessageType.user;
+    final hasCorrection = widget.message.correction != null &&
+        widget.message.correction!.isNotEmpty;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -25,49 +85,34 @@ class ChatBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // If this is a user message and there is a correction,
-          // show the "i" icon on the left side.
           if (isUser && hasCorrection) ...[
-            Container(
-              margin: const EdgeInsets.only(left: 10),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.yellow[600],
-                shape: BoxShape.circle,
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  // You could show a dialog or a tooltip with the correction here
-                  // For example:
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: const Text('Correction'),
-                        content: Text(message.correction!),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-                child: const Icon(
-                  Icons.info,
-                  color: Colors.black,
-                  size: 16,
-                ),
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: const Text('Correction'),
+                      content: Text(widget.message.correction!),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+              child: const Icon(
+                Icons.info,
+                color: Colors.yellow,
+                size: 24,
               ),
             ),
             const SizedBox(width: 5),
           ],
-
-          // Align AI messages to the left and user messages to the right
-          if (!isUser) const SizedBox(width: 40),
-
+          if (!isUser) const SizedBox(width: 2),
           Flexible(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
@@ -81,21 +126,50 @@ class ChatBubble extends StatelessWidget {
                   bottomRight: isUser ? Radius.zero : const Radius.circular(10),
                 ),
               ),
-              child: SelectableText(
-                message.text,
-                style: const TextStyle(fontSize: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    widget.message.text,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  if (!isUser)
+                    Row(
+                      mainAxisSize: MainAxisSize.min, // Limit size to children
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showExplanation(context),
+                          child: Container(
+                            decoration: const BoxDecoration(),
+                            child: _isExplaining
+                                ? const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.grey),
+                                  )
+                                : Icon(Icons.help,
+                                    color: Colors.black54.withOpacity(0.5),
+                                    size: 20),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.volume_up,
+                            size: 20,
+                            color: Colors.black54.withOpacity(0.5),
+                          ),
+                          onPressed: () {
+                            widget.ttsService.speak(
+                                widget.message.text, widget.message.language);
+                          },
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ),
-
-          // Add the speaker button for bot messages
-          if (!isUser)
-            IconButton(
-              icon: const Icon(Icons.volume_up, size: 20, color: Colors.black54),
-              onPressed: () {
-                ttsService.speak(message.text, message.language);
-              },
-            ),
         ],
       ),
     );
